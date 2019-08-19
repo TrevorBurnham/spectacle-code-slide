@@ -1,5 +1,5 @@
 function calculateScrollCenter(start, end, container) {
-  if (!start) return;
+  if (!start) return 0;
 
   end = end || start;
 

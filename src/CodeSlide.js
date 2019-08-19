@@ -13,18 +13,8 @@ const calculateScrollCenter = require('./calculateScrollCenter');
 const scrollToElement = require('./scrollToElement');
 const getComputedCodeStyle = require('./getComputedCodeStyle');
 
-function startOrEnd(index, loc) {
-  if (index === loc[0]) {
-    return 'start';
-  } else if (index === loc[1]) {
-    return 'end';
-  } else {
-    return null;
-  }
-}
-
 function calculateOpacity(index, loc) {
-  return (loc[0] <= index && loc[1] > index) ? 1 : 0.2;
+  return (loc[0] - 1 <= index && loc[1] > index) ? 1 : 0.2;
 }
 
 function getLineNumber(index) {
@@ -72,82 +62,7 @@ class CodeSlide extends React.Component {
     active: this.getStorageItem() || 0
   };
 
-  componentWillMount() {
-    this.updateNotes();
-  }
-
-  componentDidMount() {
-    document.addEventListener('keydown', this.onKeyDown);
-    window.addEventListener('storage', this.onStorage);
-    window.addEventListener('resize', this.onResize);
-    this.scrollActiveIntoView(true);
-
-    requestAnimationFrame(() => {
-      this.scrollActiveIntoView(true);
-    });
-  }
-
-  componentWillUnmount() {
-    document.removeEventListener('keydown', this.onKeyDown);
-    window.removeEventListener('storage', this.onStorage);
-    window.removeEventListener('resize', this.onResize);
-  }
-
-  componentWillEnter(cb) {
-    this.refs.slide.componentWillEnter(cb)
-  }
-
-  componentWillAppear(cb) {
-    this.refs.slide.componentWillAppear(cb)
-  }
-
-  componentWillLeave(cb) {
-    this.refs.slide.componentWillLeave(cb)
-  }
-
-  getStorageId() {
-    return 'code-slide:' + this.props.slideIndex;
-  }
-
-  getStorageItem() {
-    return +localStorage.getItem(this.getStorageId());
-  }
-
-  setStorageItem(value) {
-    return localStorage.setItem(this.getStorageId(), '' + value);
-  }
-
-  isSlideActive() {
-    const slide = this.context.store.getState().route.slide;
-    return this.props.slideIndex === parseInt(slide);
-  }
-
-  goTo(active, skipLocalStorage) {
-    this.setState({ active }, this.scrollActiveIntoView);
-    this.updateNotes();
-
-    if (!skipLocalStorage) {
-      this.setStorageItem(active);
-    }
-  }
-
-  scrollActiveIntoView = (skipAnimation) => {
-    const {container, start, end} = this.refs;
-    const scrollTo = calculateScrollCenter(start, end, container);
-    scrollToElement(container, 0, scrollTo, {
-      duration: skipAnimation ? 1 : 1000
-    });
-  };
-
-  onResize = () => {
-    this.scrollActiveIntoView(true);
-  };
-
   onKeyDown = e => {
-    if (!this.isSlideActive()) {
-      return;
-    }
-
     let prev = this.state.active;
     let active = null;
 
@@ -170,9 +85,73 @@ class CodeSlide extends React.Component {
     }
   };
 
+  componentWillMount() {
+    this.updateNotes();
+  }
+
+  componentDidMount() {
+    document.addEventListener('keydown', this.onKeyDown);
+    window.addEventListener('storage', this.onStorage);
+    window.addEventListener('resize', this.onResize);
+    this.scrollActiveIntoView(true);
+
+    requestAnimationFrame(() => {
+      this.scrollActiveIntoView(true);
+    });
+  }
+
+  componentWillUnmount() {
+    document.removeEventListener('keydown', this.onKeyDown);
+    window.removeEventListener('storage', this.onStorage);
+    window.removeEventListener('resize', this.onResize);
+  }
+
+  componentWillEnter(cb) {
+    this._slide.componentWillEnter(cb)
+  }
+
+  componentWillAppear(cb) {
+    this._slide.componentWillAppear(cb)
+  }
+
+  componentWillLeave(cb) {
+    this._slide.componentWillLeave(cb)
+  }
+
+  getStorageId() {
+    return 'code-slide:' + this._slideIndex;
+  }
+
+  getStorageItem() {
+    return +localStorage.getItem(this.getStorageId());
+  }
+
+  setStorageItem(value) {
+    return localStorage.setItem(this.getStorageId(), '' + value);
+  }
+
+  goTo(active, skipLocalStorage) {
+    this.setState({ active }, this.scrollActiveIntoView);
+    this.updateNotes();
+
+    if (!skipLocalStorage) {
+      this.setStorageItem(active);
+    }
+  }
+
+  scrollActiveIntoView = (skipAnimation) => {
+    const scrollTo = calculateScrollCenter(this._start, this._end, this._container);
+    scrollToElement(this._container, 0, scrollTo, {
+      duration: skipAnimation ? 1 : 1000
+    });
+  };
+
+  onResize = () => {
+    this.scrollActiveIntoView(true);
+  };
+
   updateNotes() {
     if (
-      !this.isSlideActive() ||
       !this.context.updateNotes
     ) {
       return;
@@ -200,10 +179,13 @@ class CodeSlide extends React.Component {
       color: color || style.color,
     };
 
-    const lines = getHighlightedCodeLines(code, lang).map((line, index) => {
+    const lines = getHighlightedCodeLines(code.trim(), lang).map((line, index) => {
       return <div
         key={index}
-        ref={startOrEnd(index, loc)}
+        ref={(ref) => {
+          if (index === loc[0] - 1) this._start = ref;
+          if (index === loc[1]) this._end = ref;
+        }}
         dangerouslySetInnerHTML={{
           __html: showLineNumbers
             ? getLineNumber(index) + line
@@ -213,10 +195,10 @@ class CodeSlide extends React.Component {
     });
 
     return (
-      <Slide ref='slide' bgColor={slideBg} margin={1} {...rest}>
+      <Slide ref={(ref) => {this._slide = ref}} bgColor={slideBg} margin={1} {...rest}>
         {range.title && <CodeSlideTitle>{range.title}</CodeSlideTitle>}
 
-        <pre ref="container" style={newStyle}>
+        <pre ref={(ref) => {this._container = ref}} style={newStyle}>
           <code style={{ display: "inline-block", textAlign: "left" }}>{lines}</code>
         </pre>
 
