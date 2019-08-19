@@ -59,7 +59,7 @@ class CodeSlide extends React.Component {
   };
 
   state = {
-    active: this.getStorageItem() || 0
+    active: 0
   };
 
   onKeyDown = e => {
